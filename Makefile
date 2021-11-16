@@ -1,7 +1,8 @@
-obj-m += x2100_ec_sys.o
+obj-m += x2100-ec-sys.o
+KERNEL_DIR = /lib/modules/$(shell uname -r)/build
 
 all:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
+	$(MAKE) -C "$(KERNEL_DIR)" M="$(PWD)" modules
 
 clean:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+	$(MAKE) -C "$(KERNEL_DIR)" M="$(PWD)" clean

@@ -423,6 +423,8 @@ static int ec_write_ram(u32 addr, u8 val)
 	return err;
 }
 
+
+
 int ec_read_ram_word(u32 addr, u8 *val)
 {
 	int err=0;
@@ -795,12 +797,85 @@ static ssize_t acpi_ec_write_sci(struct file *f, const char __user *buf,
 
 }
 
-
 static const struct file_operations acpi_ec_sci_ops = {
 	.owner = THIS_MODULE,
 	.open  = simple_open,
 	.read  = acpi_ec_read_sci,
 	.write = acpi_ec_write_sci,
+	.llseek = default_llseek,
+};
+
+static ssize_t acpi_ec_read_einval(struct file *f, char __user *buf,
+			       size_t count, loff_t *off)
+{
+	return -EINVAL;
+}
+
+static ssize_t acpi_ec_write_fan_timer(struct file *f, const char __user *buf,
+					size_t count, loff_t *off)
+{
+	if (count < 1 || *off > 0)
+		return 0;
+	
+	uint8_t val;
+	if (get_user(val, buf))
+		return -EFAULT;
+	
+	int err=0;
+	u8 stat;
+	struct acpi_ec *ec=first_ec;
+
+	if (!write_support)
+		return -EINVAL;
+	
+	mutex_lock(&ec->mutex);
+	if (!err) err = ec_wr_cmd (ec, 0x81, &stat);
+	if (!err) err = ec_wr_data(ec, 0x52, &stat);
+	if (!err) err = ec_wr_data(ec, val, &stat);
+	mutex_unlock(&ec->mutex);
+	
+	return err < 0 ? err : 1;
+}
+
+static const struct file_operations acpi_ec_fan_timer_ops = {
+	.owner = THIS_MODULE,
+	.open  = simple_open,
+	.read  = acpi_ec_read_einval,
+	.write = acpi_ec_write_fan_timer,
+	.llseek = default_llseek,
+};
+
+static ssize_t acpi_ec_write_fan_speed(struct file *f, const char __user *buf,
+					size_t count, loff_t *off)
+{
+	if (count < 1 || *off > 0)
+		return 0;
+	
+	uint8_t val;
+	if (get_user(val, buf))
+		return -EFAULT;
+	
+	int err=0;
+	u8 stat;
+	struct acpi_ec *ec=first_ec;
+
+	if (!write_support)
+		return -EINVAL;
+	
+	mutex_lock(&ec->mutex);
+	if (!err) err = ec_wr_cmd (ec, 0x81, &stat);
+	if (!err) err = ec_wr_data(ec, 0x51, &stat);
+	if (!err) err = ec_wr_data(ec, val, &stat);
+	mutex_unlock(&ec->mutex);
+	
+	return err < 0 ? err : 1;
+}
+
+static const struct file_operations acpi_ec_fan_speed_ops = {
+	.owner = THIS_MODULE,
+	.open  = simple_open,
+	.read  = acpi_ec_read_einval,
+	.write = acpi_ec_write_fan_speed,
 	.llseek = default_llseek,
 };
 
@@ -826,6 +901,9 @@ static void acpi_ec_add_debugfs(struct acpi_ec *ec, unsigned int ec_device_count
 	debugfs_create_file("sci", mode, dev_dir, ec, &acpi_ec_sci_ops);
 	debugfs_create_file_size("ram", mode, dev_dir, ec, &acpi_ec_ram_ops,EC_RAM_SIZE);
 	debugfs_create_file_size("gpio", mode, dev_dir, ec, &acpi_ec_gpio_ops,EC_GPIO_SIZE);
+	mode = 0200;
+	debugfs_create_file_size("fan_timer", mode, dev_dir, ec, &acpi_ec_fan_timer_ops,1);
+	debugfs_create_file_size("fan_speed", mode, dev_dir, ec, &acpi_ec_fan_speed_ops,1);
 }
 
 static int __init acpi_ec_sys_init(void)

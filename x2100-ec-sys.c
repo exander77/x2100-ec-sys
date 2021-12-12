@@ -879,6 +879,41 @@ static const struct file_operations acpi_ec_fan_speed_ops = {
 	.llseek = default_llseek,
 };
 
+static ssize_t acpi_ec_write_xop(struct file *f, const char __user *buf,
+					size_t count, loff_t *off)
+{
+	if (count < 1 || *off > 0)
+		return 0;
+	
+	uint8_t val;
+	if (get_user(val, buf))
+		return -EFAULT;
+	
+	int err=0;
+	u8 stat;
+	struct acpi_ec *ec=first_ec;
+
+	if (!write_support)
+		return -EINVAL;
+	
+	mutex_lock(&ec->mutex);
+	if (!err) err = ec_wr_cmd (ec, 0x81, &stat);
+	if (!err) err = ec_wr_data(ec, 0xFC, &stat);
+	if (!err) err = ec_wr_data(ec, val, &stat);
+	mutex_unlock(&ec->mutex);
+	
+	return err < 0 ? err : 1;
+}
+
+static const struct file_operations acpi_ec_xop_ops = {
+	.owner = THIS_MODULE,
+	.open  = simple_open,
+	.read  = acpi_ec_read_einval,
+	.write = acpi_ec_write_xop,
+	.llseek = default_llseek,
+};
+
+
 static void acpi_ec_add_debugfs(struct acpi_ec *ec, unsigned int ec_device_count)
 {
 	struct dentry *dev_dir;
@@ -904,6 +939,7 @@ static void acpi_ec_add_debugfs(struct acpi_ec *ec, unsigned int ec_device_count
 	mode = 0200;
 	debugfs_create_file_size("fan_timer", mode, dev_dir, ec, &acpi_ec_fan_timer_ops,1);
 	debugfs_create_file_size("fan_speed", mode, dev_dir, ec, &acpi_ec_fan_speed_ops,1);
+	debugfs_create_file_size("xop", mode, dev_dir, ec, &acpi_ec_xop_ops,1);
 }
 
 static int __init acpi_ec_sys_init(void)

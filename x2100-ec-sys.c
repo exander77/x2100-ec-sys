@@ -387,7 +387,9 @@ static int ec_write_ram(u32 addr, u8 val)
 	struct acpi_ec *ec=first_ec;
 	if (!write_support)
 		return -EINVAL;
-	
+
+	mutex_lock(&ec->mutex);
+
 	ob[0]=(addr >>16)&0xff;
 	ob[1]=(addr >>8)&0xff;
 	ob[2]=(addr)&0xff;
@@ -497,7 +499,9 @@ static int ec_write_ram_word(u32 addr, u16 val)
 		return -EINVAL;
 	if(addr&1)
 		return -EINVAL;
-	
+
+	mutex_lock(&ec->mutex);
+
 	ob[0]=(addr >>16)&0xff;
 	ob[1]=(addr >>8)&0xff;
 	ob[2]=(addr)&0xff;
